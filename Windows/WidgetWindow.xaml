@@ -1,0 +1,139 @@
+<!-- Copyright (c) 2026 LanDen Labs - Dennis Lang -->
+<Window x:Class="WinWidgetTimer.Windows.WidgetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:WinWidgetTimer.ViewModels"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        Title="Timer Widget">
+
+    <Window.ContextMenu>
+        <ContextMenu Background="#FF1E1E2E" BorderBrush="#FF454570">
+            <ContextMenu.Resources>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Foreground" Value="#FFCDD6F4"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                </Style>
+            </ContextMenu.Resources>
+            <MenuItem Header="⚙  Settings"     Click="Settings_Click"/>
+            <MenuItem Header="?  About"         Click="About_Click"/>
+            <Separator Background="#FF454570"/>
+            <MenuItem x:Name="RemoveMenuItem"
+                      Header="✕  Remove Widget" Click="Remove_Click"/>
+            <Separator Background="#FF454570"/>
+            <MenuItem Header="✕  Exit"          Click="Exit_Click"/>
+        </ContextMenu>
+    </Window.ContextMenu>
+
+    <Border x:Name="WidgetBorder"
+            Background="#CC1E1E2E"
+            BorderBrush="#FF454570"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="14,10,14,12"
+            Cursor="SizeAll"
+            MouseLeftButtonDown="Widget_MouseLeftButtonDown"
+            MouseMove="Widget_MouseMove"
+            MouseLeftButtonUp="Widget_MouseLeftButtonUp"
+            MouseEnter="Widget_MouseEnter"
+            MouseLeave="Widget_MouseLeave">
+
+        <StackPanel Orientation="Vertical" MinWidth="200">
+
+            <!-- Title bar -->
+            <Grid x:Name="TitleBarGrid" Height="22" Margin="0,0,0,6">
+                <TextBlock x:Name="TitleText"
+                           Text="⏱ Timers"
+                           Foreground="#66FFFFFF"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           IsHitTestVisible="False"/>
+                <StackPanel x:Name="IconPanel"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Visibility="Collapsed"
+                            IsHitTestVisible="True">
+                    <Button Style="{StaticResource IconButtonStyle}"
+                            Content="⚙"
+                            ToolTip="Settings"
+                            Click="Settings_Click"
+                            IsHitTestVisible="True"/>
+                    <Button Style="{StaticResource IconButtonStyle}"
+                            Content="?"
+                            ToolTip="About"
+                            FontWeight="Bold"
+                            Click="About_Click"
+                            IsHitTestVisible="True"/>
+                </StackPanel>
+            </Grid>
+
+            <Rectangle x:Name="TitleBarSeparator"
+                       Height="1" Fill="#33FFFFFF" Margin="0,0,0,6"/>
+
+            <!-- Timer rows -->
+            <ItemsControl x:Name="TimerList"
+                          Grid.IsSharedSizeScope="True"
+                          IsHitTestVisible="True">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:TimerDisplayItem}">
+                        <Border x:Name="RowBorder"
+                                Padding="4,4"
+                                CornerRadius="5"
+                                Cursor="Hand"
+                                Background="Transparent"
+                                ToolTip="Click to start / pause / reset"
+                                MouseLeftButtonDown="TimerRow_MouseLeftButtonDown">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="ColIcon"/>
+                                    <ColumnDefinition Width="6"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="ColName"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="ColTime"/>
+                                    <ColumnDefinition Width="6"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="ColState"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Color indicator dot -->
+                                <Ellipse Grid.Column="0"
+                                         Width="8" Height="8"
+                                         VerticalAlignment="Center"
+                                         Fill="{Binding RowColor}"/>
+
+                                <!-- Timer name -->
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding Name}"
+                                           Foreground="{Binding RowColor}"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="120"/>
+
+                                <!-- Time display -->
+                                <TextBlock Grid.Column="4"
+                                           Text="{Binding TimeDisplay}"
+                                           Foreground="{Binding RowColor}"
+                                           FontFamily="Consolas, Courier New"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center"
+                                           MinWidth="75"/>
+
+                                <!-- State icon -->
+                                <TextBlock Grid.Column="6"
+                                           Text="{Binding StateIcon}"
+                                           Foreground="#88FFFFFF"
+                                           FontSize="10"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </StackPanel>
+    </Border>
+</Window>
