@@ -258,7 +258,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     {
         CountdownSection.Visibility  = type == TimerType.Countdown ? Visibility.Visible : Visibility.Collapsed;
         AlarmSection.Visibility      = type == TimerType.Alarm     ? Visibility.Visible : Visibility.Collapsed;
-        CompletionSection.Visibility = type != TimerType.Elapsed   ? Visibility.Visible : Visibility.Collapsed;
+        CompletionSection.Visibility = Visibility.Visible;
     }
 
     // ── Timer type combo ─────────────────────────────────────────────────────
