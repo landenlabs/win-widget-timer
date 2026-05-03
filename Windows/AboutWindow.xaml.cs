@@ -22,14 +22,21 @@ public partial class AboutWindow : Window
         var mp4 = Path.Combine(AppContext.BaseDirectory, "Assets", "landenlabs.mp4");
         if (File.Exists(mp4))
         {
-            LogoPlayer.Source = new Uri(mp4);
             LogoPlayer.MediaEnded += (_, _) =>
             {
                 if (_closing) return;
-                LogoPlayer.Position = TimeSpan.Zero;
-                LogoPlayer.Play();
+                try { LogoPlayer.Position = TimeSpan.Zero; LogoPlayer.Play(); }
+                catch { }
             };
             LogoPlayer.Visibility = Visibility.Visible;
+            // Defer source + play until the window is rendered; the MediaElement must be
+            // in the visual tree before the WPF media pipeline will accept commands.
+            Loaded += (_, _) =>
+            {
+                if (_closing) return;
+                try { LogoPlayer.Source = new Uri(mp4); LogoPlayer.Play(); }
+                catch { }
+            };
         }
         else
         {
@@ -44,10 +51,8 @@ public partial class AboutWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        // Stop and release the MediaElement before the window closes.
-        // Without this WMF holds a lock on the media pipeline and deadlocks the UI thread.
         _closing = true;
-        LogoPlayer.Stop();
+        try { LogoPlayer.Stop(); } catch { }
         LogoPlayer.Source = null;
         base.OnClosing(e);
     }
