@@ -114,12 +114,10 @@ public class TimerEntry : INotifyPropertyChanged
         switch (State)
         {
             case TimerState.Idle:
-                if (_timerType != TimerType.Alarm)
-                    Start();
+                Start();
                 break;
             case TimerState.Running:
-                if (_timerType != TimerType.Alarm)
-                    Pause();
+                Pause();
                 break;
             case TimerState.Paused:
                 Reset();

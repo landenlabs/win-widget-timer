@@ -78,8 +78,8 @@ public class TimerDisplayItem : INotifyPropertyChanged
 
         StateIcon = Entry.State switch
         {
-            TimerState.Idle    => Entry.TimerType == TimerType.Alarm ? "⏰" : "▶",
-            TimerState.Running => Entry.TimerType == TimerType.Alarm ? "⏰" : "⏸",
+            TimerState.Idle    => "▶",
+            TimerState.Running => "⏸",
             TimerState.Paused  => "↺",
             TimerState.Done    => Entry.TimerType == TimerType.Alarm ? "🔔" : "✓",
             _                  => "▶"
