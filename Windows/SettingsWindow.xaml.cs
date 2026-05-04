@@ -359,6 +359,87 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         catch { }
     }
 
+    // ── Drag-to-reorder ──────────────────────────────────────────────────────
+
+    private TimerListItem? _pendingDrag;
+    private TimerListItem? _dragItem;
+    private System.Windows.Point _dragStart;
+
+    private void TimersList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var element = e.OriginalSource as DependencyObject;
+        while (element != null && element != TimersList)
+        {
+            if (element is FrameworkElement fe && fe.Tag as string == "DragHandle"
+                && fe.DataContext is TimerListItem item)
+            {
+                _pendingDrag = item;
+                _dragStart = (System.Windows.Point)e.GetPosition(null);
+                return;
+            }
+            element = VisualTreeHelper.GetParent(element);
+        }
+        _pendingDrag = null;
+    }
+
+    private void TimersList_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_pendingDrag == null || e.LeftButton != MouseButtonState.Pressed) return;
+
+        var pos = (System.Windows.Point)e.GetPosition(null);
+        var diff = pos - _dragStart;
+        if (Math.Abs(diff.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+
+        var item = _pendingDrag;
+        _pendingDrag = null;
+        _dragItem = item;
+        DragDrop.DoDragDrop(TimersList, item, System.Windows.DragDropEffects.Move);
+        _dragItem = null;
+    }
+
+    private void TimersList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        => _pendingDrag = null;
+
+    private void TimersList_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = _dragItem != null ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void TimersList_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (_dragItem == null) return;
+
+        var target = GetTimerAtDropPoint(e.GetPosition(TimersList));
+        if (target != null && target != _dragItem)
+        {
+            int from = Timers.IndexOf(_dragItem);
+            int to   = Timers.IndexOf(target);
+            if (from >= 0 && to >= 0)
+            {
+                Timers.Move(from, to);
+                var entry = _widget.Timers[from];
+                _widget.Timers.RemoveAt(from);
+                _widget.Timers.Insert(to, entry);
+            }
+        }
+        SelectedTimer = _dragItem;
+        _dragItem = null;
+    }
+
+    private TimerListItem? GetTimerAtDropPoint(System.Windows.Point point)
+    {
+        var element = TimersList.InputHitTest(point) as DependencyObject;
+        while (element != null)
+        {
+            if (element is System.Windows.Controls.ListBoxItem lbi && lbi.Content is TimerListItem item)
+                return item;
+            element = VisualTreeHelper.GetParent(element);
+        }
+        return null;
+    }
+
     // ── Add / Delete ─────────────────────────────────────────────────────────
 
     private void Add_Click(object sender, RoutedEventArgs e)

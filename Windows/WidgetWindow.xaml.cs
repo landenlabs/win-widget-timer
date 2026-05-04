@@ -30,6 +30,8 @@ public partial class WidgetWindow : Window
     private static readonly SolidColorBrush _normalBorder   = new(Color.FromArgb(0xFF, 0x45, 0x45, 0x70));
     private bool _flashState;
 
+    private SoundPlayer? _soundPlayer;
+
     private string _bgColorHex;
     private double _bgOpacity;
 
@@ -114,7 +116,7 @@ public partial class WidgetWindow : Window
         }
     }
 
-    private static void TriggerAlert(TimerEntry entry)
+    private void TriggerAlert(TimerEntry entry)
     {
         var sound = entry.SoundFile;
         if (string.IsNullOrEmpty(sound)) return;
@@ -122,10 +124,26 @@ public partial class WidgetWindow : Window
         {
             if (sound == "system") { SystemSounds.Exclamation.Play(); return; }
             var path = Path.Combine(@"C:\Windows\Media", sound);
-            if (File.Exists(path)) new SoundPlayer(path).Play();
-            else SystemSounds.Exclamation.Play();
+            _soundPlayer?.Stop();
+            _soundPlayer?.Dispose();
+            if (File.Exists(path))
+            {
+                _soundPlayer = new SoundPlayer(path);
+                _soundPlayer.Play();
+            }
+            else
+            {
+                _soundPlayer = null;
+                SystemSounds.Exclamation.Play();
+            }
         }
         catch { }
+    }
+
+    private void StopAlert()
+    {
+        _soundPlayer?.Stop();
+        _soundPlayer = null;
     }
 
     // ── Flash on completion ──────────────────────────────────────────────────
@@ -207,8 +225,11 @@ public partial class WidgetWindow : Window
     {
         if (sender is FrameworkElement fe && fe.DataContext is TimerDisplayItem item)
         {
+            bool wasDone = item.Entry.State == TimerState.Done;
             item.Entry.Toggle();
             item.Update();
+            if (wasDone)
+                StopAlert(); // stop audio immediately on dismiss
             // Stop flash if no Done+FlashOnEnd timers remain
             if (_flashTimer.IsEnabled && !_items.Any(i => i.Entry.State == TimerState.Done && i.Entry.FlashOnEnd))
                 StopFlash();
@@ -330,6 +351,8 @@ public partial class WidgetWindow : Window
         _updateTimer.Stop();
         _displayCheckTimer.Stop();
         _flashTimer.Stop();
+        _soundPlayer?.Stop();
+        _soundPlayer?.Dispose();
         base.OnClosed(e);
     }
 }

@@ -70,7 +70,13 @@
                          Background="#FF1E1E2E"
                          BorderBrush="#FF454570"
                          Foreground="#FFCDD6F4"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         AllowDrop="True"
+                         PreviewMouseLeftButtonDown="TimersList_PreviewMouseLeftButtonDown"
+                         PreviewMouseMove="TimersList_PreviewMouseMove"
+                         PreviewMouseLeftButtonUp="TimersList_PreviewMouseLeftButtonUp"
+                         DragOver="TimersList_DragOver"
+                         Drop="TimersList_Drop">
                     <ListBox.Resources>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="Padding" Value="8,7"/>
@@ -95,26 +101,42 @@
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
+                                <!-- Drag handle -->
+                                <Border Grid.Column="0" Tag="DragHandle"
+                                        Padding="3,0"
+                                        Cursor="SizeAll" VerticalAlignment="Center"
+                                        Background="Transparent" ToolTip="Drag to reorder">
+                                    <UniformGrid Columns="2" Rows="3" Width="8" Height="12">
+                                        <Ellipse Fill="#FF585B70" Margin="0.5"/>
+                                        <Ellipse Fill="#FF585B70" Margin="0.5"/>
+                                        <Ellipse Fill="#FF585B70" Margin="0.5"/>
+                                        <Ellipse Fill="#FF585B70" Margin="0.5"/>
+                                        <Ellipse Fill="#FF585B70" Margin="0.5"/>
+                                        <Ellipse Fill="#FF585B70" Margin="0.5"/>
+                                    </UniformGrid>
+                                </Border>
                                 <!-- Color dot -->
-                                <Ellipse Grid.Column="0" Width="10" Height="10"
+                                <Ellipse Grid.Column="2" Width="10" Height="10"
                                          VerticalAlignment="Center"
                                          Fill="{Binding ColorBrush}"/>
                                 <!-- Type icon -->
-                                <TextBlock Grid.Column="2"
+                                <TextBlock Grid.Column="4"
                                            VerticalAlignment="Center"
                                            FontSize="12"
                                            Text="{Binding TypeIcon}"/>
                                 <!-- Name -->
-                                <TextBlock Grid.Column="4"
+                                <TextBlock Grid.Column="6"
                                            Text="{Binding Name}"
                                            VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"/>
                                 <!-- Duration preview -->
-                                <TextBlock Grid.Column="6"
+                                <TextBlock Grid.Column="8"
                                            Text="{Binding DurationPreview}"
                                            VerticalAlignment="Center"
                                            Foreground="#FF6C7086"

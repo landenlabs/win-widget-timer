@@ -1,6 +1,7 @@
 // Copyright (c) 2026 LanDen Labs - Dennis Lang
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Media;
 using WinWidgetTimer.Models;
 
@@ -53,9 +54,19 @@ public class TimerDisplayItem : INotifyPropertyChanged
         ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 80, 80))
         : ColorBrush;
 
+    private bool _isActive;
+    public FontWeight RowFontWeight => _isActive ? FontWeights.Bold : FontWeights.Normal;
+
     public void Update()
     {
         IsDone = Entry.State == TimerState.Done;
+
+        bool active = Entry.State == TimerState.Running || Entry.State == TimerState.Done;
+        if (_isActive != active)
+        {
+            _isActive = active;
+            OnPropertyChanged(nameof(RowFontWeight));
+        }
 
         TypeIcon = Entry.TimerType switch
         {

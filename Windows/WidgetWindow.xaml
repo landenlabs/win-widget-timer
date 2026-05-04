@@ -108,7 +108,7 @@
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding Name}"
                                            Foreground="{Binding RowColor}"
-                                           FontWeight="SemiBold"
+                                           FontWeight="{Binding RowFontWeight}"
                                            VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"
                                            MaxWidth="120"/>
@@ -118,7 +118,7 @@
                                            Text="{Binding TimeDisplay}"
                                            Foreground="{Binding RowColor}"
                                            FontFamily="Consolas, Courier New"
-                                           FontWeight="Bold"
+                                           FontWeight="{Binding RowFontWeight}"
                                            VerticalAlignment="Center"
                                            MinWidth="75"/>
 
