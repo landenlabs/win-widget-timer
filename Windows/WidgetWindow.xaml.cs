@@ -22,6 +22,7 @@ public partial class WidgetWindow : Window
 
     private bool _isEmbedded;
     private bool _isDragging;
+    private bool _isCollapsed;
     private System.Windows.Point _dragOffset;
 
     private readonly DispatcherTimer _flashTimer;
@@ -92,7 +93,7 @@ public partial class WidgetWindow : Window
     {
         _items = _settings.Timers.Select(t => new TimerDisplayItem(t)).ToList();
         TimerList.ItemsSource = _items;
-        TitleText.Text = $"⏱ {_settings.Name}";
+        UpdateTitle();
         ApplyFontScale(_settings.FontScalePercent > 0 ? _settings.FontScalePercent : 100);
         ApplyShowTitleBar(_settings.ShowTitleBar);
         if (RemoveMenuItem != null)
@@ -100,6 +101,13 @@ public partial class WidgetWindow : Window
     }
 
     // ── Tick: update displays and check triggers ─────────────────────────────
+
+    private void UpdateTitle()
+    {
+        int active = _items.Count(i => i.Entry.State == TimerState.Running);
+        string count = active > 0 ? $" ({active})" : "";
+        TitleText.Text = $"⏱ {_settings.Name}{count}";
+    }
 
     private void Tick()
     {
@@ -114,6 +122,7 @@ public partial class WidgetWindow : Window
                     StartFlash();
             }
         }
+        UpdateTitle();
     }
 
     private void TriggerAlert(TimerEntry entry)
@@ -216,7 +225,17 @@ public partial class WidgetWindow : Window
     public void ApplyShowTitleBar(bool show)
     {
         TitleBarGrid.Visibility      = show ? Visibility.Visible : Visibility.Collapsed;
-        TitleBarSeparator.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        TitleBarSeparator.Visibility = (show && !_isCollapsed) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // ── Title collapse / expand ──────────────────────────────────────────────
+
+    private void TitleText_Click(object sender, MouseButtonEventArgs e)
+    {
+        _isCollapsed = !_isCollapsed;
+        TimerList.Visibility         = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        TitleBarSeparator.Visibility = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        e.Handled = true;
     }
 
     // ── Timer row click ──────────────────────────────────────────────────────

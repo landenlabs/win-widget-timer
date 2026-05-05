@@ -8,7 +8,11 @@
       "Bash(Select-Object -First 50)",
       "Bash(Format-Table FullName)",
       "Bash(Get-ChildItem -Path \"c:\\\\opt\\\\projects\\\\projects-c#\\\\widgets\\\\win-widget-timer\" -Recurse)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\opt\\\\projects\\\\projects-c#\\\\widgets\\\\win-widget-timer\" -Recurse -File)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\opt\\\\projects\\\\projects-c#\\\\widgets\\\\win-widget-timer\" -Recurse -File | Select-Object FullName | ForEach-Object { $_.FullName })",
+      "Bash(findstr *)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\opt\\\\projects\\\\projects-c#\\\\widgets\\\\win-widget-timer\" | Where-Object { $_.PSIsContainer } | Select-Object Name)"
     ]
   }
 }

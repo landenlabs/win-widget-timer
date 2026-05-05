@@ -51,7 +51,9 @@
                            Foreground="#66FFFFFF"
                            FontSize="11"
                            VerticalAlignment="Center"
-                           IsHitTestVisible="False"/>
+                           Cursor="Hand"
+                           ToolTip="Click to collapse / expand"
+                           MouseLeftButtonDown="TitleText_Click"/>
                 <StackPanel x:Name="IconPanel"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
