@@ -96,35 +96,60 @@ public class TimerDisplayItem : INotifyPropertyChanged
 
     private string GetCountdownDisplay()
     {
-        if (Entry.State == TimerState.Idle)
-            return FormatTimeSpan(TimeSpan.FromSeconds(Entry.DurationSeconds));
         if (Entry.State == TimerState.Done)
             return "DONE!";
-        return FormatTimeSpan(Entry.GetRemaining());
+        var ts = Entry.State == TimerState.Idle
+            ? TimeSpan.FromSeconds(Entry.DurationSeconds)
+            : Entry.GetRemaining();
+        return FormatDuration(ts);
     }
 
     private string GetElapsedDisplay()
-        => FormatTimeSpan(Entry.GetElapsed());
+        => FormatDuration(Entry.GetElapsed());
 
     private string GetAlarmDisplay()
     {
         if (Entry.State == TimerState.Done)
-            return $"🔔 {Entry.AlarmTimeStr}";
+            return $"🔔 {FormatAlarmTime(Entry.GetNextAlarmDateTime())}";
 
-        var until = Entry.GetNextAlarmDateTime() - DateTime.Now;
-        return $"{Entry.AlarmTimeStr}  {FormatUntil(until)}";
+        var next = Entry.GetNextAlarmDateTime();
+        var until = next - DateTime.Now;
+        return $"{FormatAlarmTime(next)}  {FormatUntil(until)}";
     }
 
-    private static string FormatTimeSpan(TimeSpan ts)
+    private string FormatDuration(TimeSpan ts)
     {
-        if (ts.TotalHours >= 1)
-            return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
-        return $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+        // Apply the entry's TimeFormat by mapping to a DateTime with the duration as time-of-day.
+        // Falls back to HH:mm:ss when the format is invalid or for durations >= 24h.
+        try
+        {
+            int totalHours = (int)ts.TotalHours;
+            if (totalHours < 24)
+            {
+                var dt = new DateTime(2000, 1, 1, totalHours, ts.Minutes, ts.Seconds);
+                return dt.ToString(Entry.TimeFormat);
+            }
+        }
+        catch { }
+
+        // Fallback
+        int h = (int)ts.TotalHours;
+        return h >= 1
+            ? $"{h:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+    }
+
+    private string FormatAlarmTime(DateTime alarmDt)
+    {
+        try { return alarmDt.ToString(Entry.TimeFormat); }
+        catch { return alarmDt.ToString("HH:mm"); }
     }
 
     private static string FormatUntil(TimeSpan ts)
     {
         if (ts < TimeSpan.Zero) ts = TimeSpan.Zero;
+        if (ts.TotalDays >= 1)
+            return $"in {(int)ts.TotalDays}d {ts.Hours}h";
         if (ts.TotalHours >= 1)
             return $"in {(int)ts.TotalHours}h {ts.Minutes:D2}m";
         if (ts.TotalMinutes >= 1)

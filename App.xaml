@@ -115,9 +115,11 @@
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsHighlighted" Value="True">
                                             <Setter TargetName="Bd" Property="Background" Value="#FF313244"/>
+                                            <Setter Property="Foreground" Value="#FFCDD6F4"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter TargetName="Bd" Property="Background" Value="#FF454570"/>
+                                            <Setter Property="Foreground" Value="#FFCDD6F4"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

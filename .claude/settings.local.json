@@ -6,7 +6,9 @@
       "Bash(dotnet build *)",
       "Bash(Get-ChildItem -Path \"c:\\\\opt\\\\projects\\\\projects-c#\\\\widgets\\\\win-widget-timer\" -Recurse -Force)",
       "Bash(Select-Object -First 50)",
-      "Bash(Format-Table FullName)"
+      "Bash(Format-Table FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\opt\\\\projects\\\\projects-c#\\\\widgets\\\\win-widget-timer\" -Recurse)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

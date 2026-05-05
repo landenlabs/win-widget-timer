@@ -170,6 +170,24 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
 
         PopulateSoundCombo();
 
+        FormatHelpText.Text =
+            "yyyy    4-digit year           2026\n" +
+            "yy      2-digit year           26\n" +
+            "MMMM    Full month name        January\n" +
+            "MMM     3-char month abbr.     Jan\n" +
+            "MM      2-digit month          01 – 12\n" +
+            "dddd    Full day name          Monday\n" +
+            "ddd     3-char day abbr.       Mon\n" +
+            "dd      2-digit day            01 – 31\n" +
+            "HH      24-hour, padded        00 – 23\n" +
+            "H       24-hour                0 – 23\n" +
+            "hh      12-hour, padded        01 – 12\n" +
+            "h       12-hour                1 – 12\n" +
+            "mm      Minutes                00 – 59\n" +
+            "ss      Seconds                00 – 59\n" +
+            "tt      AM / PM designator     AM · PM\n" +
+            "fff     Milliseconds           001 – 999";
+
         // Select first timer if available
         if (Timers.Count > 0)
             SelectedTimer = Timers[0];
@@ -241,11 +259,21 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         DurSeconds.Text = (total % 60).ToString();
         UpdateDurationPreview();
 
+        // Alarm day of week
+        AlarmDayCombo.SelectionChanged -= AlarmDay_SelectionChanged;
+        AlarmDayCombo.SelectedIndex = entry.AlarmDayOfWeek < 0 ? 0 : entry.AlarmDayOfWeek + 1;
+        AlarmDayCombo.SelectionChanged += AlarmDay_SelectionChanged;
+
         // Alarm time fields
         var parts = entry.AlarmTimeStr.Split(':');
         AlarmHour.Text   = parts.Length > 0 ? parts[0] : "9";
         AlarmMinute.Text = parts.Length > 1 ? parts[1] : "00";
         UpdateAlarmPreview();
+
+        // Time format
+        FormatBox.TextChanged -= TimerFormat_TextChanged;
+        FormatBox.Text = entry.TimeFormat;
+        FormatBox.TextChanged += TimerFormat_TextChanged;
 
         // Completion notification fields
         FlashCheck.IsChecked = entry.FlashOnEnd;
@@ -317,16 +345,38 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     private void UpdateAlarmPreview()
     {
         if (_selectedTimerItem == null) { AlarmPreviewLabel.Text = ""; return; }
-        if (TimeSpan.TryParse(_selectedTimerItem.Entry.AlarmTimeStr, out var ts))
-        {
-            var next = DateTime.Today.Add(ts);
-            if (next <= DateTime.Now) next = next.AddDays(1);
-            var until = next - DateTime.Now;
-            AlarmPreviewLabel.Text = until.TotalHours >= 1
+        var next = _selectedTimerItem.Entry.GetNextAlarmDateTime();
+        var until = next - DateTime.Now;
+        AlarmPreviewLabel.Text = until.TotalDays >= 1
+            ? $"in {(int)until.TotalDays}d {until.Hours}h"
+            : until.TotalHours >= 1
                 ? $"in {(int)until.TotalHours}h {until.Minutes}m"
                 : $"in {until.Minutes}m";
-        }
     }
+
+    // ── Alarm day-of-week handler ─────────────────────────────────────────────
+
+    private void AlarmDay_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressDurationEvents || _selectedTimerItem == null) return;
+        // Index 0 = Daily (-1), Index 1..7 = Sunday(0)..Saturday(6)
+        int idx = AlarmDayCombo.SelectedIndex;
+        _selectedTimerItem.Entry.AlarmDayOfWeek = idx <= 0 ? -1 : idx - 1;
+        _selectedTimerItem.NotifyAlarmChanged();
+        UpdateAlarmPreview();
+    }
+
+    // ── Time format handler ────────────────────────────────────────────────────
+
+    private void TimerFormat_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_suppressDurationEvents || _selectedTimerItem == null) return;
+        _selectedTimerItem.Entry.TimeFormat = FormatBox.Text;
+        _selectedTimerItem.NotifyFormatChanged();
+    }
+
+    private void FormatHelp_Click(object sender, RoutedEventArgs e)
+        => FormatHelpPopup.IsOpen = !FormatHelpPopup.IsOpen;
 
     // ── Completion notification handlers ─────────────────────────────────────
 
@@ -576,6 +626,7 @@ public class TimerListItem : System.ComponentModel.INotifyPropertyChanged
     public string Name            => Entry.Name;
     public SolidColorBrush ColorBrush => Entry.ColorBrush;
     public string DurationPreview => BuildDurationPreview();
+    public string Format          => Entry.TimeFormat;
     public string TypeIcon => Entry.TimerType switch
     {
         TimerType.Countdown => "⏱",
@@ -589,6 +640,7 @@ public class TimerListItem : System.ComponentModel.INotifyPropertyChanged
     public void NotifyTypeChanged()     { OnPropertyChanged(nameof(TypeIcon)); OnPropertyChanged(nameof(DurationPreview)); }
     public void NotifyDurationChanged() { OnPropertyChanged(nameof(DurationPreview)); }
     public void NotifyAlarmChanged()    { OnPropertyChanged(nameof(DurationPreview)); }
+    public void NotifyFormatChanged()   { OnPropertyChanged(nameof(Format)); }
 
     private string BuildDurationPreview()
     {
@@ -596,9 +648,16 @@ public class TimerListItem : System.ComponentModel.INotifyPropertyChanged
         {
             TimerType.Countdown => FormatSeconds(Entry.DurationSeconds),
             TimerType.Elapsed   => "stopwatch",
-            TimerType.Alarm     => Entry.AlarmTimeStr,
+            TimerType.Alarm     => BuildAlarmPreview(),
             _                   => ""
         };
+    }
+
+    private string BuildAlarmPreview()
+    {
+        if (Entry.AlarmDayOfWeek < 0) return Entry.AlarmTimeStr;
+        string[] abbr = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        return $"{abbr[Entry.AlarmDayOfWeek]} {Entry.AlarmTimeStr}";
     }
 
     private static string FormatSeconds(int total)

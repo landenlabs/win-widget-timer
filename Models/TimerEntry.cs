@@ -54,6 +54,12 @@ public class TimerEntry : INotifyPropertyChanged
     // HH:mm string for Alarm timers (e.g. "09:00")
     public string AlarmTimeStr { get; set; } = "09:00";
 
+    // Day of week for Alarm timers: -1 = daily, 0 = Sunday … 6 = Saturday
+    public int AlarmDayOfWeek { get; set; } = -1;
+
+    // Display format string (DateTime / TimeSpan tokens, e.g. "HH:mm", "ddd HH:mm")
+    public string TimeFormat { get; set; } = "HH:mm";
+
     // Notification on completion ("" = none, "system" = system beep, else filename in C:\Windows\Media\)
     public string SoundFile { get; set; } = "Alarm01.wav";
     public bool FlashOnEnd { get; set; } = true;
@@ -168,6 +174,8 @@ public class TimerEntry : INotifyPropertyChanged
         if (_timerType == TimerType.Alarm)
         {
             var now = DateTime.Now;
+            if (AlarmDayOfWeek >= 0 && (int)now.DayOfWeek != AlarmDayOfWeek)
+                return false;
             var alarmToday = now.Date + ParseAlarmTime();
             if (now >= alarmToday && _lastTriggeredDate.Date != now.Date)
             {
@@ -184,8 +192,19 @@ public class TimerEntry : INotifyPropertyChanged
     public DateTime GetNextAlarmDateTime()
     {
         var now = DateTime.Now;
-        var today = now.Date + ParseAlarmTime();
-        return today > now ? today : today.AddDays(1);
+        var alarmTime = ParseAlarmTime();
+
+        if (AlarmDayOfWeek < 0)
+        {
+            var today = now.Date + alarmTime;
+            return today > now ? today : today.AddDays(1);
+        }
+
+        // Specific day of week
+        int daysUntil = ((AlarmDayOfWeek - (int)now.DayOfWeek) + 7) % 7;
+        var candidate = now.Date.AddDays(daysUntil) + alarmTime;
+        if (daysUntil == 0 && candidate <= now) candidate = candidate.AddDays(7);
+        return candidate;
     }
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────

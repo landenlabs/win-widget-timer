@@ -57,10 +57,20 @@
                 </Grid>
 
                 <!-- List header -->
-                <TextBlock Grid.Row="2"
-                           Text="Timers"
-                           FontSize="13" FontWeight="SemiBold" Foreground="#FF89B4FA"
-                           Margin="0,0,0,4"/>
+                <Grid Grid.Row="2" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="9"/>
+                        <ColumnDefinition Width="75"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Timers"
+                               FontSize="13" FontWeight="SemiBold" Foreground="#FF89B4FA"/>
+                    <Rectangle Grid.Column="1" Width="1" Fill="#FF454570"
+                               HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+                    <TextBlock Grid.Column="2" Text="Format"
+                               FontSize="11" FontWeight="SemiBold" Foreground="#FF89B4FA"
+                               VerticalAlignment="Bottom" Margin="4,0,0,0"/>
+                </Grid>
 
                 <!-- Timer list -->
                 <ListBox Grid.Row="3"
@@ -106,6 +116,8 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="9"/>
+                                    <ColumnDefinition Width="75"/>
                                 </Grid.ColumnDefinitions>
                                 <!-- Drag handle -->
                                 <Border Grid.Column="0" Tag="DragHandle"
@@ -143,6 +155,18 @@
                                            FontFamily="Consolas, Courier New"
                                            FontSize="11"
                                            TextTrimming="CharacterEllipsis"/>
+                                <!-- Format column -->
+                                <Rectangle Grid.Column="9" Width="1" Fill="#FF454570"
+                                           HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                           Margin="0,1,0,1"/>
+                                <TextBlock Grid.Column="10"
+                                           Text="{Binding Format}"
+                                           VerticalAlignment="Center"
+                                           Foreground="#FFCDD6F4"
+                                           FontFamily="Consolas, Courier New"
+                                           FontSize="11"
+                                           Margin="4,0,0,0"
+                                           TextTrimming="CharacterEllipsis"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -179,7 +203,9 @@
                         <RowDefinition Height="Auto"/>  <!-- 8  countdown duration -->
                         <RowDefinition Height="Auto"/>  <!-- 9  alarm time -->
                         <RowDefinition Height="10"/>    <!-- 10 spacer -->
-                        <RowDefinition Height="Auto"/>  <!-- 11 on completion -->
+                        <RowDefinition Height="Auto"/>  <!-- 11 time format -->
+                        <RowDefinition Height="10"/>    <!-- 12 spacer -->
+                        <RowDefinition Height="Auto"/>  <!-- 13 on completion -->
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -265,7 +291,28 @@
                     <StackPanel Grid.Row="9"
                                 x:Name="AlarmSection"
                                 Visibility="Collapsed">
-                        <TextBlock Text="Alarm Time  (HH : MM)" Style="{StaticResource DarkLabel}"/>
+                        <TextBlock Text="Alarm Schedule" Style="{StaticResource DarkLabel}"/>
+                        <!-- Day of week row -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Day:"
+                                       Foreground="#FFA6ADC8"
+                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <ComboBox x:Name="AlarmDayCombo"
+                                      Style="{StaticResource DarkComboBox}"
+                                      Width="122"
+                                      SelectionChanged="AlarmDay_SelectionChanged">
+                                <ComboBoxItem Content="Daily"/>
+                                <ComboBoxItem Content="Sunday"/>
+                                <ComboBoxItem Content="Monday"/>
+                                <ComboBoxItem Content="Tuesday"/>
+                                <ComboBoxItem Content="Wednesday"/>
+                                <ComboBoxItem Content="Thursday"/>
+                                <ComboBoxItem Content="Friday"/>
+                                <ComboBoxItem Content="Saturday"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <!-- Time row -->
+                        <TextBlock Text="Time  (HH : MM)" Style="{StaticResource DarkLabel}"/>
                         <StackPanel Orientation="Horizontal">
                             <TextBox x:Name="AlarmHour"
                                      Style="{StaticResource DarkTextBox}"
@@ -287,8 +334,36 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- ─── On Completion (Countdown + Alarm only) ─── -->
+                    <!-- ─── Time Format ──────────────────────────────── -->
                     <StackPanel Grid.Row="11"
+                                x:Name="FormatSection">
+                        <TextBlock Text="Time Format" Style="{StaticResource DarkLabel}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="FormatBox"
+                                     Style="{StaticResource DarkTextBox}"
+                                     FontFamily="Consolas, Courier New"
+                                     TextChanged="TimerFormat_TextChanged"
+                                     ToolTip="Display format — e.g. HH:mm:ss or ddd HH:mm for alarm"/>
+                            <Button Grid.Column="2"
+                                    x:Name="FormatHelpBtn"
+                                    Content="?"
+                                    Style="{StaticResource SubtleButton}"
+                                    Padding="9,5" FontWeight="Bold"
+                                    ToolTip="Show format token reference"
+                                    Click="FormatHelp_Click"/>
+                        </Grid>
+                        <TextBlock Margin="0,4,0,0" FontSize="10" Foreground="#FF6C7086"
+                                   Text="(e.g. HH:mm:ss  or  ddd HH:mm for alarm)"/>
+                    </StackPanel>
+
+                    <!-- ─── On Completion (Countdown + Alarm only) ─── -->
+                    <StackPanel Grid.Row="13"
                                 x:Name="CompletionSection"
                                 Visibility="Collapsed">
                         <Rectangle Height="1" Fill="#FF313244" Margin="0,0,0,10"/>
@@ -416,5 +491,38 @@
             <Button Content="Save"   Style="{StaticResource AccentButton}"
                     Click="Save_Click"/>
         </StackPanel>
+
+        <!-- ── Format token reference popup ── -->
+        <Popup x:Name="FormatHelpPopup"
+               Grid.Row="0"
+               PlacementTarget="{Binding ElementName=FormatHelpBtn}"
+               Placement="Left"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               PopupAnimation="Fade">
+            <Border Background="#FF252535"
+                    BorderBrush="#FF454570"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="14,10">
+                <StackPanel>
+                    <TextBlock Text="Date / Time Format Tokens"
+                               FontWeight="SemiBold" FontSize="12"
+                               Foreground="#FF89B4FA" Margin="0,0,0,8"/>
+                    <TextBox x:Name="FormatHelpText"
+                             IsReadOnly="True" AcceptsReturn="True"
+                             FontFamily="Consolas, Courier New" FontSize="11"
+                             Foreground="#FFCDD6F4" Background="Transparent"
+                             BorderThickness="0" Padding="0" IsTabStop="False"/>
+                    <Rectangle Height="1" Fill="#FF454570" Margin="0,8,0,6"/>
+                    <TextBlock FontSize="10" Foreground="#FF6C7086">
+                        <Run Text="Countdown/Elapsed: "/>
+                        <Run Text="HH:mm:ss" FontFamily="Consolas, Courier New" Foreground="#FFA6ADC8"/>
+                        <Run Text="   Alarm: "/>
+                        <Run Text="ddd HH:mm" FontFamily="Consolas, Courier New" Foreground="#FFA6ADC8"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </Popup>
     </Grid>
 </Window>
