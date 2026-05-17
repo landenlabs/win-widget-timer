@@ -20,6 +20,27 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     private readonly string _origBgColor;
     private readonly int    _origBgOpacityPercent;
     private readonly int    _origFontScalePercent;
+    private readonly double _origPosX;
+    private readonly double _origPosY;
+
+    // ── Position picker ──────────────────────────────────────────────────────
+
+    private double _mapScale;
+    private double _mapLeft;
+    private double _mapTop;
+    private double _mapOffsetX;
+    private double _mapOffsetY;
+    private double _dpiScaleX = 1.0;
+    private double _dpiScaleY = 1.0;
+    private System.Windows.Controls.Border? _widgetMarker;
+    private bool _markerDragging;
+    private System.Windows.Point _markerDragStart;
+    private double _markerDragOrigLeft;
+    private double _markerDragOrigTop;
+    private double _editPosX;
+    private double _editPosY;
+
+    public string WidgetPositionText => $"X: {(int)_editPosX}  Y: {(int)_editPosY}";
 
     // ── Bindable: widget-level appearance ────────────────────────────────────
 
@@ -146,6 +167,10 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         _origBgOpacityPercent = (int)Math.Round(widget.BackgroundOpacity * 100);
         if (_origBgOpacityPercent == 0) _origBgOpacityPercent = 85;
         _origFontScalePercent = widget.FontScalePercent > 0 ? widget.FontScalePercent : 100;
+        _origPosX = livePreviewTarget?.Left ?? widget.X;
+        _origPosY = livePreviewTarget?.Top  ?? widget.Y;
+        _editPosX = _origPosX;
+        _editPosY = _origPosY;
 
         // Load working copies
         _widgetName       = widget.Name;
@@ -575,6 +600,143 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         UpdateBgColorHexLabel();
     }
 
+    // ── Screen-map position picker ───────────────────────────────────────────
+
+    private void Window_Loaded(object sender, RoutedEventArgs e) => BuildScreenMap();
+
+    private void BuildScreenMap()
+    {
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        int minX = screens.Min(s => s.Bounds.Left);
+        int minY = screens.Min(s => s.Bounds.Top);
+        int maxX = screens.Max(s => s.Bounds.Right);
+        int maxY = screens.Max(s => s.Bounds.Bottom);
+        _mapOffsetX = minX;
+        _mapOffsetY = minY;
+
+        double cW = ScreenMapCanvas.ActualWidth;
+        double cH = ScreenMapCanvas.ActualHeight;
+        if (cW <= 0 || cH <= 0) return;
+
+        double vdW = maxX - minX;
+        double vdH = maxY - minY;
+        _mapScale = Math.Min(cW / vdW, cH / vdH);
+
+        _mapLeft = (cW - vdW * _mapScale) / 2.0;
+        _mapTop  = (cH - vdH * _mapScale) / 2.0;
+
+        var source = PresentationSource.FromVisual(this);
+        _dpiScaleX = source?.CompositionTarget.TransformToDevice.M11 ?? 1.0;
+        _dpiScaleY = source?.CompositionTarget.TransformToDevice.M22 ?? 1.0;
+
+        ScreenMapCanvas.Children.Clear();
+
+        foreach (var screen in screens)
+        {
+            double left = _mapLeft + (screen.Bounds.Left - minX) * _mapScale;
+            double top  = _mapTop  + (screen.Bounds.Top  - minY) * _mapScale;
+            double w    = screen.Bounds.Width  * _mapScale;
+            double h    = screen.Bounds.Height * _mapScale;
+
+            var monitorRect = new System.Windows.Controls.Border
+            {
+                Width = w, Height = h,
+                Background       = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x30)),
+                BorderBrush      = new SolidColorBrush(Color.FromRgb(0x45, 0x45, 0x70)),
+                BorderThickness  = new Thickness(1),
+                CornerRadius     = new CornerRadius(2),
+                IsHitTestVisible = false
+            };
+            System.Windows.Controls.Canvas.SetLeft(monitorRect, left);
+            System.Windows.Controls.Canvas.SetTop(monitorRect, top);
+            ScreenMapCanvas.Children.Add(monitorRect);
+
+            var lbl = new System.Windows.Controls.TextBlock
+            {
+                Text       = screen.Primary ? "Primary" : $"{screen.Bounds.Width}×{screen.Bounds.Height}",
+                FontSize   = 9,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x58, 0x5B, 0x70)),
+                IsHitTestVisible = false
+            };
+            System.Windows.Controls.Canvas.SetLeft(lbl, left + 3);
+            System.Windows.Controls.Canvas.SetTop(lbl,  top  + 2);
+            ScreenMapCanvas.Children.Add(lbl);
+        }
+
+        double widgetWpx = (_livePreviewTarget?.ActualWidth  ?? 200) * _dpiScaleX;
+        double widgetHpx = (_livePreviewTarget?.ActualHeight ?? 80)  * _dpiScaleY;
+        double markerW   = Math.Max(widgetWpx * _mapScale, 14);
+        double markerH   = Math.Max(widgetHpx * _mapScale, 8);
+
+        double markerLeft = _mapLeft + (_editPosX * _dpiScaleX - minX) * _mapScale;
+        double markerTop  = _mapTop  + (_editPosY * _dpiScaleY - minY) * _mapScale;
+
+        _widgetMarker = new System.Windows.Controls.Border
+        {
+            Width = markerW, Height = markerH,
+            Background      = new SolidColorBrush(Color.FromArgb(0xCC, 0x89, 0xB4, 0xFA)),
+            BorderBrush     = Brushes.White,
+            BorderThickness = new Thickness(1),
+            CornerRadius    = new CornerRadius(2),
+            Cursor          = Cursors.SizeAll,
+            ToolTip         = "Drag to reposition the widget"
+        };
+        _widgetMarker.MouseLeftButtonDown += WidgetMarker_MouseLeftButtonDown;
+        _widgetMarker.MouseMove           += WidgetMarker_MouseMove;
+        _widgetMarker.MouseLeftButtonUp   += WidgetMarker_MouseLeftButtonUp;
+
+        System.Windows.Controls.Canvas.SetLeft(_widgetMarker, markerLeft);
+        System.Windows.Controls.Canvas.SetTop(_widgetMarker, markerTop);
+        System.Windows.Controls.Panel.SetZIndex(_widgetMarker, 10);
+        ScreenMapCanvas.Children.Add(_widgetMarker);
+    }
+
+    private void WidgetMarker_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _markerDragging     = true;
+        _markerDragStart    = e.GetPosition(ScreenMapCanvas);
+        _markerDragOrigLeft = System.Windows.Controls.Canvas.GetLeft(_widgetMarker!);
+        _markerDragOrigTop  = System.Windows.Controls.Canvas.GetTop(_widgetMarker!);
+        _widgetMarker!.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void WidgetMarker_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_markerDragging || _widgetMarker == null) return;
+
+        var pos     = e.GetPosition(ScreenMapCanvas);
+        double newL = _markerDragOrigLeft + (pos.X - _markerDragStart.X);
+        double newT = _markerDragOrigTop  + (pos.Y - _markerDragStart.Y);
+
+        newL = Math.Max(0, Math.Min(newL, ScreenMapCanvas.ActualWidth  - _widgetMarker.Width));
+        newT = Math.Max(0, Math.Min(newT, ScreenMapCanvas.ActualHeight - _widgetMarker.Height));
+
+        System.Windows.Controls.Canvas.SetLeft(_widgetMarker, newL);
+        System.Windows.Controls.Canvas.SetTop(_widgetMarker, newT);
+
+        _editPosX = ((newL - _mapLeft) / _mapScale + _mapOffsetX) / _dpiScaleX;
+        _editPosY = ((newT - _mapTop)  / _mapScale + _mapOffsetY) / _dpiScaleY;
+
+        OnPropertyChanged(nameof(WidgetPositionText));
+
+        if (_livePreviewTarget != null)
+        {
+            _livePreviewTarget.Left = _editPosX;
+            _livePreviewTarget.Top  = _editPosY;
+        }
+
+        e.Handled = true;
+    }
+
+    private void WidgetMarker_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_markerDragging) return;
+        _markerDragging = false;
+        _widgetMarker?.ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
     // ── Save / Cancel ────────────────────────────────────────────────────────
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -585,6 +747,15 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         _widget.FontScalePercent  = _fontScalePercent;
         _widget.EmbedInWallpaper  = _embedInWallpaper;
         _widget.ShowTitleBar      = _showTitleBar;
+
+        var config = DisplayService.GetCurrentDisplayConfiguration();
+        DisplayService.SaveDisplayPosition(_widget, config, (int)_editPosX, (int)_editPosY);
+        if (_livePreviewTarget != null)
+        {
+            _livePreviewTarget.Left = _editPosX;
+            _livePreviewTarget.Top  = _editPosY;
+        }
+
         SettingsService.Save(App.Settings);
         DialogResult = true;
         Close();
@@ -594,6 +765,11 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     {
         _livePreviewTarget?.ApplyBackground(_origBgColor, _origBgOpacityPercent / 100.0);
         _livePreviewTarget?.ApplyFontScale(_origFontScalePercent);
+        if (_livePreviewTarget != null)
+        {
+            _livePreviewTarget.Left = _origPosX;
+            _livePreviewTarget.Top  = _origPosY;
+        }
         DialogResult = false;
         Close();
     }

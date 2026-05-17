@@ -282,22 +282,35 @@ public partial class WidgetWindow : Window
             var cursor = DesktopService.GetCursorPosition();
             var bounds = DesktopService.GetWindowBounds(this);
             _dragOffset = new System.Windows.Point(cursor.X - bounds.Left, cursor.Y - bounds.Top);
-            _isDragging = true;
-            WidgetBorder.CaptureMouse();
         }
         else
         {
-            try { DragMove(); } catch { }
-            SaveCurrentPosition();
+            // DragMove() fails on Windows 10 with AllowsTransparency=True + WindowStyle=None
+            _dragOffset = e.GetPosition(this);
         }
+        _isDragging = true;
+        WidgetBorder.CaptureMouse();
         e.Handled = true;
     }
 
     private void Widget_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (!_isDragging || !_isEmbedded) return;
+        if (!_isDragging) return;
         var cursor = DesktopService.GetCursorPosition();
-        DesktopService.MoveEmbeddedWindow(this, cursor.X - (int)_dragOffset.X, cursor.Y - (int)_dragOffset.Y);
+        if (_isEmbedded)
+        {
+            DesktopService.MoveEmbeddedWindow(this, cursor.X - (int)_dragOffset.X, cursor.Y - (int)_dragOffset.Y);
+        }
+        else
+        {
+            var source = PresentationSource.FromVisual(this);
+            if (source != null)
+            {
+                var scale = source.CompositionTarget.TransformFromDevice;
+                Left = cursor.X * scale.M11 - _dragOffset.X;
+                Top  = cursor.Y * scale.M22 - _dragOffset.Y;
+            }
+        }
     }
 
     private void Widget_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -310,6 +323,10 @@ public partial class WidgetWindow : Window
             var bounds = DesktopService.GetWindowBounds(this);
             DisplayService.SaveDisplayPosition(_settings, _currentDisplayConfig, bounds.Left, bounds.Top);
             SettingsService.Save(App.Settings);
+        }
+        else
+        {
+            SaveCurrentPosition();
         }
     }
 
