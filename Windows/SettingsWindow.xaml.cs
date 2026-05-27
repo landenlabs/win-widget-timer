@@ -89,6 +89,13 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         set { _showTitleBar = value; OnPropertyChanged(); _livePreviewTarget?.ApplyShowTitleBar(value); }
     }
 
+    private bool _autoStartEnabled;
+    public bool AutoStartEnabled
+    {
+        get => _autoStartEnabled;
+        set { _autoStartEnabled = value; OnPropertyChanged(); }
+    }
+
     // ── Bindable: timers list ────────────────────────────────────────────────
 
     public ObservableCollection<TimerListItem> Timers { get; } = [];
@@ -179,6 +186,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         _fontScalePercent = _origFontScalePercent;
         _embedInWallpaper = widget.EmbedInWallpaper;
         _showTitleBar     = widget.ShowTitleBar;
+        _autoStartEnabled = AutoStartService.IsEnabled();
 
         // Populate timer list
         foreach (var t in widget.Timers)
@@ -191,6 +199,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(FontScalePercent));
         OnPropertyChanged(nameof(EmbedInWallpaper));
         OnPropertyChanged(nameof(ShowTitleBar));
+        OnPropertyChanged(nameof(AutoStartEnabled));
         UpdateBgColorHexLabel();
 
         PopulateSoundCombo();
@@ -755,6 +764,9 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
             _livePreviewTarget.Left = _editPosX;
             _livePreviewTarget.Top  = _editPosY;
         }
+
+        AutoStartService.SetEnabled(_autoStartEnabled);
+        App.Settings.AutoStart = _autoStartEnabled;
 
         SettingsService.Save(App.Settings);
         DialogResult = true;

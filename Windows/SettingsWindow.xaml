@@ -484,6 +484,11 @@
                                   IsChecked="{Binding ShowTitleBar, Mode=TwoWay}"
                                   Foreground="#FFCDD6F4"
                                   VerticalAlignment="Center" Margin="24,0,0,0"/>
+                        <CheckBox x:Name="AutoStartCheck"
+                                  Content="Auto-start on login"
+                                  IsChecked="{Binding AutoStartEnabled, Mode=TwoWay}"
+                                  Foreground="#FFCDD6F4"
+                                  VerticalAlignment="Center" Margin="24,0,0,0"/>
                     </StackPanel>
 
                     <!-- Position picker header -->
