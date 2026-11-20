@@ -56,6 +56,7 @@ color, sound, and flash-on-completion settings.
 - **Font scale** — adjust text size 50–200%
 - **Show / hide title bar** — toggle the widget header on or off
 - **Wallpaper embed mode** — render the widget at the wallpaper layer (below all windows)
+- **Auto-start on login** — optional launch with Windows (a *Startup apps* entry when installed from the MSIX)
 - **Dark theme** — Catppuccin Mocha palette throughout
 - **Persistent settings** — saved to `%AppData%\WinWidgetTimer\settings.json`
 
@@ -63,8 +64,9 @@ color, sound, and flash-on-completion settings.
 
 ## Requirements
 
-- Windows 10 or Windows 11
-- [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) — install once; no SDK required
+- Windows 10 or Windows 11 (x64 or ARM64)
+- No .NET install needed for the release builds — the MSIX and zip are self-contained
+- Framework-dependent builds from source need the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 
 ---
 
@@ -103,25 +105,35 @@ This approach works on Windows 10 because the Settings dialog is a normal opaque
 
 ## Installation
 
-### Option A — Download release zip
+See **[how-to-install.md](how-to-install.md)** for full details — every install option, why the MSIX is signed with a self-signed certificate, which Windows security features (SmartScreen, Smart App Control) can still block the app, and how to uninstall.
 
-1. Go to [Releases](https://github.com/landenlabs/win-widget-timer/releases)
-2. Download `WinWidgetTimer.zip`
-3. Extract to any folder (e.g. `C:\opt\bin\winwidgets\`)
-4. Run `WinWidgetTimer.exe`
+### Option A — MSIX installer (recommended)
 
-> The release zip contains a single self-contained `WinWidgetTimer.exe` plus an `Assets\` folder.  
-> You must have [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) installed.
+1. From [Releases](https://github.com/landenlabs/win-widget-timer/releases) download `WinWidgetTimer-<version>-x64.msix` (or `-arm64.msix`) and `install-msix.ps1` into the same folder
+2. Run it from a normal (non-admin) PowerShell:
+   `powershell -ExecutionPolicy Bypass -File .\install-msix.ps1`
+   It picks the `.msix` matching your CPU, trusts its self-signed certificate (one UAC prompt), installs, and launches the app. It shows up in the Start menu as **WinWidgetTimer**.
 
-### Option B — Build from source
+> Windows only installs an MSIX whose signing certificate is trusted, so the self-signed certificate must be added to **Local Machine → Trusted People** first — the script does this for you.
+> To remove the app and the certificate later: `powershell -ExecutionPolicy Bypass -File .\uninstall-msix.ps1`
+
+### Option B — Portable release zip
+
+1. Download `WinWidgetTimer.zip` from [Releases](https://github.com/landenlabs/win-widget-timer/releases)
+2. Right-click the zip → **Properties** → tick **Unblock** → **OK**
+3. Extract to any folder (e.g. `C:\opt\bin\winwidgets\`) and run `WinWidgetTimer.exe`
+
+> The zip contains a single self-contained `WinWidgetTimer.exe` (assets bundled inside) — no .NET runtime needed. The exe is unsigned, so SmartScreen may warn (**More info → Run anyway**).
+
+### Option C — Build from source
 
 ```cmd
 git clone https://github.com/landenlabs/win-widget-timer.git
 cd win-widget-timer
-install.bat
+build.bat C:\opt\bin
 ```
 
-The `install.bat` script publishes the project and copies the output to `C:\opt\bin\winwidgets\`.
+`build.bat <dest-dir>` publishes a self-contained single-file exe to `<dest-dir>\winwidgets\` and writes a `<dest-dir>\WinWidgetTimer.bat` launcher. With no argument it uses the `BINDIR` environment variable.
 
 ---
 
@@ -190,6 +202,7 @@ Open Settings via the hover button or right-click menu.
 | Font Scale | Text size relative to default 50–200% — updates live |
 | Embed in wallpaper layer | Anchors the widget behind all desktop icons (requires restart) |
 | Show title bar | Toggles the widget name header |
+| Auto-start on login | Launch the widget when Windows starts |
 
 ### Widget Position (bottom of Settings — Windows 10 workaround)
 
@@ -218,17 +231,29 @@ dotnet build WinWidgetTimer.csproj -c Release
 dotnet publish WinWidgetTimer.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
 ```
 
-Output: `bin\Release\net10.0-windows\win-x64\publish\`
+Output: `bin\Release\net10.0-windows10.0.17763.0\win-x64\publish\`
 
 This produces a **single `WinWidgetTimer.exe`** (all managed assemblies bundled) plus the `Assets\` folder. Users need only the .NET 10 Desktop Runtime — no SDK required.
 
 ### Build and install via batch script
 
 ```cmd
-install.bat
+build.bat <dest-dir>
 ```
 
-Kills any running instance, publishes, and copies all files to `C:\opt\bin\winwidgets\`.
+Kills any running instance, publishes a self-contained, compressed single-file exe (the same build as the release zip), copies it to `<dest-dir>\winwidgets\`, and writes a `<dest-dir>\WinWidgetTimer.bat` launcher. `<dest-dir>` defaults to the `BINDIR` environment variable.
+
+### Build the MSIX locally
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .github\scripts\build-msix.ps1 -Arch x64 -Version 6.11.20 -PfxPath cert.pfx -PfxPassword secret
+```
+
+The certificate subject must equal the package Publisher (default `CN=LanDen Labs`). The package is written to `dist\`. Requires the Windows 10/11 SDK (`makeappx.exe`, `signtool.exe`).
+
+### Releases
+
+Pushing a `v*` tag runs [.github/workflows/build.yml](.github/workflows/build.yml). It publishes the portable zip and signed x64 + ARM64 MSIX packages, and attaches them to a GitHub release together with `install-msix.ps1`, `uninstall-msix.ps1` and (for self-signed builds) `WinWidgetTimer.cer`. If the repo secrets `MSIX_CERT_BASE64` (base64 `.pfx`) and `MSIX_CERT_PASSWORD` are set, that certificate signs the packages; otherwise a self-signed `CN=LanDen Labs` certificate is generated for the build.
 
 ---
 
@@ -237,25 +262,33 @@ Kills any running instance, publishes, and copies all files to `C:\opt\bin\winwi
 ```
 WinWidgetTimer/
 ├── Models/
-│   ├── AppSettings.cs       # Top-level settings (list of widgets)
-│   ├── TimerEntry.cs        # Per-timer data model
-│   └── WidgetSettings.cs    # Per-widget data model (position, timers, colors)
+│   ├── AppSettings.cs          # Top-level settings (list of widgets)
+│   ├── DisplayConfiguration.cs # Multi-monitor position tracking
+│   └── TimerEntry.cs           # Per-timer data model
 ├── Services/
-│   ├── DesktopService.cs    # Wallpaper embed / Win32 window helpers
-│   ├── DisplayService.cs    # Per-monitor position save/restore
-│   ├── SettingsService.cs   # Load/save settings.json
-│   └── TrayIconService.cs   # System tray icon
+│   ├── AutoStartService.cs     # Run on login (Run key, or MSIX StartupTask)
+│   ├── DesktopService.cs       # Wallpaper embed / Win32 window helpers
+│   ├── DisplayService.cs       # Per-monitor position save/restore
+│   ├── SettingsService.cs      # Load/save settings.json
+│   └── TrayIconService.cs      # System tray icon
 ├── ViewModels/
-│   └── TimerDisplayItem.cs  # Live timer binding per row
+│   └── TimerDisplayItem.cs     # Live timer binding per row
 ├── Windows/
-│   ├── AboutWindow.xaml     # About dialog
-│   ├── ColorPickerWindow.xaml
-│   ├── SettingsWindow.xaml  # Settings dialog (incl. screen-map position picker)
-│   └── WidgetWindow.xaml    # Main widget overlay
+│   ├── AboutWindow.xaml        # About dialog
+│   ├── ColorPickerWindow.xaml  # Color picker dialog
+│   ├── SettingsWindow.xaml     # Settings dialog (incl. screen-map position picker)
+│   └── WidgetWindow.xaml       # Main widget overlay
 ├── Assets/
-│   ├── landenlabs.mp4       # Animated logo (About dialog)
-│   └── landenlabs.png       # Static logo fallback
-└── install.bat              # Build and install script
+│   ├── landenlabs.mp4          # Animated logo (About dialog)
+│   └── landenlabs.png          # Static logo fallback
+├── .github/
+│   ├── workflows/build.yml     # Release build: zip + signed MSIX (x64, arm64)
+│   └── scripts/build-msix.ps1  # MSIX packaging and signing
+├── screens/icon.png            # Source image for the MSIX logos
+├── build.bat                   # Build and install portable exe locally
+├── install-msix.ps1            # Trust certificate + install MSIX (end users)
+├── uninstall-msix.ps1          # Remove MSIX + its self-signed certificate(s)
+└── how-to-install.md           # Install options, certificate and security notes
 ```
 
 ---
@@ -266,6 +299,12 @@ WinWidgetTimer/
 |-----------|--------|
 | Timer logic | Custom countdown / stopwatch / alarm engine |
 | Desktop embedding | Win32 `WorkerW` technique |
+
+---
+
+## Privacy
+
+No accounts, ads, analytics, telemetry or tracking. See [privacy.md](privacy.md) for exactly what the app reads, stores and (if anything) sends.
 
 ---
 

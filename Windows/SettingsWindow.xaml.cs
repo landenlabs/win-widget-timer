@@ -96,6 +96,10 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         set { _autoStartEnabled = value; OnPropertyChanged(); }
     }
 
+    public string AutoStartHint => AutoStartService.IsPackaged
+        ? "Installed app: also listed in Task Manager › Startup apps"
+        : "";
+
     // ── Bindable: timers list ────────────────────────────────────────────────
 
     public ObservableCollection<TimerListItem> Timers { get; } = [];
@@ -765,8 +769,11 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
             _livePreviewTarget.Top  = _editPosY;
         }
 
-        AutoStartService.SetEnabled(_autoStartEnabled);
-        App.Settings.AutoStart = _autoStartEnabled;
+        var autoStartError = AutoStartService.SetEnabled(_autoStartEnabled);
+        App.Settings.AutoStart = AutoStartService.IsEnabled();
+        if (autoStartError != null)
+            System.Windows.MessageBox.Show(this, autoStartError, "WinWidgetTimer — Auto-start",
+                MessageBoxButton.OK, MessageBoxImage.Information);
 
         SettingsService.Save(App.Settings);
         DialogResult = true;
