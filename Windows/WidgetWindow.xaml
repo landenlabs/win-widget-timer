@@ -36,9 +36,11 @@
             CornerRadius="10"
             Padding="14,10,14,12"
             Cursor="SizeAll"
+            PreviewMouseLeftButtonDown="Widget_PreviewMouseLeftButtonDown"
             MouseLeftButtonDown="Widget_MouseLeftButtonDown"
             MouseMove="Widget_MouseMove"
             MouseLeftButtonUp="Widget_MouseLeftButtonUp"
+            LostMouseCapture="Widget_LostMouseCapture"
             MouseEnter="Widget_MouseEnter"
             MouseLeave="Widget_MouseLeave">
 

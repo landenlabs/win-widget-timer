@@ -9,6 +9,8 @@ namespace WinWidgetTimer;
 public partial class App : System.Windows.Application
 {
     private static Mutex? _mutex;
+    private static bool _ownsMutex;
+    private AboutWindow? _aboutWindow;
     private TrayIconService? _trayIcon;
     private readonly List<WidgetWindow> _widgetWindows = [];
 
@@ -18,8 +20,8 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
-        _mutex = new Mutex(true, "WinWidgetTimer_UniqueInstance_v1", out bool isNew);
-        if (!isNew)
+        _mutex = new Mutex(true, "WinWidgetTimer_UniqueInstance_v1", out _ownsMutex);
+        if (!_ownsMutex)
         {
             System.Windows.MessageBox.Show("WinWidgetTimer is already running.",
                 "WinWidgetTimer", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -30,7 +32,7 @@ public partial class App : System.Windows.Application
         Settings = SettingsService.Load();
 
         if (Settings.Widgets.Count == 0)
-            Settings.Widgets.Add(new WidgetSettings());
+            Settings.Widgets.Add(NewWidgetSettings(100, 100));
 
         foreach (var widget in Settings.Widgets)
             CreateAndShowWidget(widget);
@@ -40,7 +42,7 @@ public partial class App : System.Windows.Application
             getWidgets:       () => Settings.Widgets,
             onWidgetSettings: id => _widgetWindows.FirstOrDefault(w => w.WidgetId == id)?.OpenSettings(),
             onWidgetRemove:   RemoveWidget,
-            onAbout:          OpenAbout,
+            onAbout:          () => OpenAbout(),
             onExit:           Shutdown
         );
     }
@@ -48,7 +50,9 @@ public partial class App : System.Windows.Application
     protected override void OnExit(ExitEventArgs e)
     {
         _trayIcon?.Dispose();
-        _mutex?.ReleaseMutex();
+        // Only the instance that acquired the mutex may release it (ReleaseMutex throws otherwise).
+        if (_ownsMutex)
+            _mutex?.ReleaseMutex();
         _mutex?.Dispose();
         base.OnExit(e);
     }
@@ -60,13 +64,17 @@ public partial class App : System.Windows.Application
         window.Show();
     }
 
+    /// <summary>A new widget with the same starter timers a first run gets.</summary>
+    private static WidgetSettings NewWidgetSettings(int x, int y)
+    {
+        var widget = new WidgetSettings { X = x, Y = y };
+        widget.Timers.AddRange(SettingsService.CreateDefaultTimers());
+        return widget;
+    }
+
     public void AddWidget()
     {
-        var newWidget = new WidgetSettings
-        {
-            X = 100 + (_widgetWindows.Count * 20),
-            Y = 100 + (_widgetWindows.Count * 20)
-        };
+        var newWidget = NewWidgetSettings(100 + (_widgetWindows.Count * 20), 100 + (_widgetWindows.Count * 20));
         Settings.Widgets.Add(newWidget);
         SettingsService.Save(Settings);
         CreateAndShowWidget(newWidget);
@@ -75,6 +83,8 @@ public partial class App : System.Windows.Application
 
     public void RemoveWidget(string widgetId)
     {
+        if (Settings.Widgets.Count <= 1) return;   // always keep at least one widget
+
         var window = _widgetWindows.FirstOrDefault(w => w.WidgetId == widgetId);
         if (window != null)
         {
@@ -91,8 +101,23 @@ public partial class App : System.Windows.Application
         _trayIcon?.RebuildMenu();
     }
 
-    private void OpenAbout()
+    /// <summary>Shows the About dialog, or activates it if it's already open.</summary>
+    public void OpenAbout(Window? owner = null)
     {
-        Dispatcher.Invoke(() => new AboutWindow().ShowDialog());
+        if (_aboutWindow != null)
+        {
+            _aboutWindow.Activate();
+            return;
+        }
+        try
+        {
+            _aboutWindow = new AboutWindow();
+            if (owner != null) _aboutWindow.Owner = owner;
+            _aboutWindow.ShowDialog();
+        }
+        finally
+        {
+            _aboutWindow = null;
+        }
     }
 }

@@ -13,6 +13,7 @@
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
     <Copyright>Copyright © 2026 LanDen Labs - Dennis Lang</Copyright>
+    <Company>LanDen Labs</Company>
     <Product>WinWidgetTimer</Product>
     <Description>Timer / Countdown / Alarm desktop widget</Description>
   </PropertyGroup>
@@ -24,6 +25,13 @@
     <Content Include="Assets\landenlabs.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <!-- Unit tests live in tests\ with their own project; keep them out of the app build. -->
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <None Remove="tests\**" />
+    <Page Remove="tests\**" />
   </ItemGroup>
 
 </Project>

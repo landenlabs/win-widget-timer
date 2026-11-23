@@ -1,0 +1,7 @@
+# GitHub Pages (Jekyll) config for the docs/ site.
+# Enable it in: repo Settings > Pages > Build and deployment > Source: "Deploy from a branch",
+# Branch: main, Folder: /docs.
+# Site URL: https://landenlabs.github.io/win-widget-timer/
+title: WinWidgetTimer
+description: A lightweight desktop widget with countdown, stopwatch and daily alarm timers.
+theme: jekyll-theme-minimal

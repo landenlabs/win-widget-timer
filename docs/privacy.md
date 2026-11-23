@@ -1,3 +1,7 @@
+---
+title: Privacy Policy
+---
+
 # WinWidgetTimer Privacy Policy
 
 **Effective date:** November 20, 2026
@@ -22,7 +26,9 @@ To run timers and alarms, WinWidgetTimer reads, locally:
 
 - your PC's clock, to count time and to fire alarms at the time you set,
 - the list of `.wav` sound files in the Windows sounds folder (`C:\Windows\Media`), so you can pick
-  a completion sound. It only plays the sound you pick,
+  a completion sound. It only plays the sound you pick (or the standard Windows alert sound if that
+  file is missing), when a timer finishes or when you press **Test** in Settings. It never records
+  sound and doesn't use the microphone,
 - the size and layout of your monitors, to place the widget.
 
 None of this is sent to LanDen Labs or anyone else.
@@ -41,7 +47,8 @@ release.
 
 WinWidgetTimer saves your settings in `%AppData%\WinWidgetTimer\settings.json`:
 
-- each widget's name, position on each monitor layout, colors, opacity, font scale, title-bar and
+- each widget's name, position on each monitor layout (identified by the monitors' sizes and
+  positions), colors, opacity, font scale (also set by resizing the widget), title-bar and
   wallpaper-layer choices,
 - your timers: each timer's name, type, color, duration or alarm day and time, display format,
   chosen sound file name, and whether it flashes when done,
@@ -77,7 +84,7 @@ this policy describes.
 
 If the app's behavior changes in a way that affects privacy, this page will be updated and the
 effective date above will change. The history of this page is public on
-[GitHub](https://github.com/landenlabs/win-widget-timer/commits/main/privacy.md).
+[GitHub](https://github.com/landenlabs/win-widget-timer/commits/main/docs/privacy.md).
 
 ## Contact
 

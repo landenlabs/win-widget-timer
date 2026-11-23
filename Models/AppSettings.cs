@@ -12,7 +12,7 @@ public class WidgetSettings
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = "Timers";
 
-    // Fallback position (also updated on every save for backward compatibility)
+    /// <summary>Last saved top-left, in screen physical pixels (fallback when the layout has no entry).</summary>
     public int X { get; set; } = 100;
     public int Y { get; set; } = 100;
 
@@ -26,7 +26,9 @@ public class WidgetSettings
     // Timer list for this widget
     public List<TimerEntry> Timers { get; set; } = [];
 
-    // Per-display-config positions
+    /// <summary>
+    /// Top-left position (screen pixels) per monitor layout.
+    /// Key: <see cref="DisplayConfiguration.ConfigurationHash"/> (a "MON:" fingerprint).
+    /// </summary>
     public Dictionary<string, DisplayPosition> DisplayPositions { get; set; } = [];
-    public string LastDisplayConfigurationHash { get; set; } = string.Empty;
 }

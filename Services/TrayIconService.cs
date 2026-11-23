@@ -34,28 +34,54 @@ public class TrayIconService : IDisposable
         InitializeTrayIcon();
     }
 
+    // Colored stopwatch icon drawn at the system small-icon size (DPI aware) so it
+    // stays crisp and visible on both light and dark taskbars.
     private static Icon CreateTimerIcon()
     {
         try
         {
-            using var bmp = new Bitmap(16, 16, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            using var g = Graphics.FromImage(bmp);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(System.Drawing.Color.Transparent);
+            int s = Math.Max(16, SystemInformation.SmallIconSize.Width);
+            float u = s / 16f;                       // 1 "pixel" at 16px design size
 
-            // Timer body (circle)
-            using var bodyPen = new Pen(System.Drawing.Color.FromArgb(220, 220, 220), 1.5f);
-            g.DrawEllipse(bodyPen, 2, 4, 12, 11);
+            using var bmp = new Bitmap(s, s, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.Clear(System.Drawing.Color.Transparent);
 
-            // Timer stem / top
-            using var stemPen = new Pen(System.Drawing.Color.FromArgb(180, 180, 180), 1.5f);
-            g.DrawLine(stemPen, 6, 2, 10, 2);
-            g.DrawLine(stemPen, 8, 2, 8, 4);
+                // Crown button (red) and stem
+                using (var crownBrush = new SolidBrush(System.Drawing.Color.FromArgb(235, 70, 60)))
+                {
+                    g.FillRectangle(crownBrush, 5.5f * u, 0.3f * u, 5f * u, 1.8f * u);
+                    g.FillRectangle(crownBrush, 7.2f * u, 1.8f * u, 1.6f * u, 1.8f * u);
+                }
 
-            // Clock hands (orange/amber)
-            using var handPen = new Pen(System.Drawing.Color.FromArgb(255, 170, 80), 1.5f);
-            g.DrawLine(handPen, 8, 10, 8, 6);  // minute hand up
-            g.DrawLine(handPen, 8, 10, 11, 10); // hour hand right
+                // Body: orange gradient ring with white face
+                var body = new RectangleF(1.2f * u, 3.0f * u, 13.6f * u, 12.6f * u);
+                using (var ringBrush = new LinearGradientBrush(body,
+                           System.Drawing.Color.FromArgb(255, 170, 50),
+                           System.Drawing.Color.FromArgb(230, 90, 20), 90f))
+                    g.FillEllipse(ringBrush, body);
+
+                var face = RectangleF.Inflate(body, -1.8f * u, -1.8f * u);
+                using (var faceBrush = new SolidBrush(System.Drawing.Color.White))
+                    g.FillEllipse(faceBrush, face);
+
+                float cx = face.X + face.Width / 2f, cy = face.Y + face.Height / 2f;
+
+                // Elapsed wedge (green) from 12 to ~4 o'clock
+                using (var wedgeBrush = new SolidBrush(System.Drawing.Color.FromArgb(200, 40, 180, 90)))
+                    g.FillPie(wedgeBrush, face.X + 0.8f * u, face.Y + 0.8f * u,
+                              face.Width - 1.6f * u, face.Height - 1.6f * u, -90f, 120f);
+
+                // Hand (dark blue) and hub
+                using (var handPen = new Pen(System.Drawing.Color.FromArgb(30, 60, 140), 1.4f * u)
+                           { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    g.DrawLine(handPen, cx, cy, cx, face.Y + 1.2f * u);
+                float hub = 1.1f * u;
+                using (var hubBrush = new SolidBrush(System.Drawing.Color.FromArgb(30, 60, 140)))
+                    g.FillEllipse(hubBrush, cx - hub, cy - hub, 2 * hub, 2 * hub);
+            }
 
             return Icon.FromHandle(bmp.GetHicon());
         }

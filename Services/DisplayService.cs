@@ -3,36 +3,52 @@ using WinWidgetTimer.Models;
 
 namespace WinWidgetTimer.Services;
 
+/// <summary>
+/// Monitor enumeration and per-monitor-layout widget positions.
+/// All positions are screen physical pixels (see <see cref="WidgetGeometry"/>).
+/// </summary>
 public static class DisplayService
 {
-    public static DisplayConfiguration GetCurrentDisplayConfiguration()
+    /// <summary>All attached screens (bounds + work area in physical pixels).</summary>
+    public static List<ScreenInfo> GetScreens()
     {
-        var screens = GetAllScreens();
-        int minX = 0, minY = 0, maxX = 0, maxY = 0;
-
-        foreach (var s in screens)
+        var list = new List<ScreenInfo>();
+        try
         {
-            minX = Math.Min(minX, s.Bounds.X);
-            minY = Math.Min(minY, s.Bounds.Y);
-            maxX = Math.Max(maxX, s.Bounds.X + s.Bounds.Width);
-            maxY = Math.Max(maxY, s.Bounds.Y + s.Bounds.Height);
+            foreach (var s in System.Windows.Forms.Screen.AllScreens)
+            {
+                list.Add(new ScreenInfo(
+                    new PxRect(s.Bounds.X, s.Bounds.Y, s.Bounds.Width, s.Bounds.Height),
+                    new PxRect(s.WorkingArea.X, s.WorkingArea.Y, s.WorkingArea.Width, s.WorkingArea.Height),
+                    s.Primary));
+            }
+        }
+        catch
+        {
+            // Fall through to the default below.
         }
 
-        var hash = GenerateHash(screens);
-        int count = screens.Count;
+        if (list.Count == 0)
+            list.Add(new ScreenInfo(new PxRect(0, 0, 1920, 1080), new PxRect(0, 0, 1920, 1040), true));
+        return list;
+    }
+
+    public static DisplayConfiguration GetCurrentDisplayConfiguration()
+    {
+        var screens = GetScreens();
+        int minX = screens.Min(s => s.Bounds.X), minY = screens.Min(s => s.Bounds.Y);
+        int maxX = screens.Max(s => s.Bounds.Right), maxY = screens.Max(s => s.Bounds.Bottom);
+
         return new DisplayConfiguration
         {
-            ConfigurationHash = hash,
-            MonitorCount = count,
-            TotalWidth  = maxX - minX,
-            TotalHeight = maxY - minY,
-            Description = count == 1
-                ? $"1 Monitor: {screens[0].Bounds.Width}x{screens[0].Bounds.Height}"
-                : $"{count} Monitors: {maxX - minX}x{maxY - minY}",
-            LastUsed = DateTime.UtcNow
+            ConfigurationHash = WidgetGeometry.Fingerprint(screens),
+            MonitorCount      = screens.Count,
+            TotalWidth        = maxX - minX,
+            TotalHeight       = maxY - minY,
         };
     }
 
+    /// <summary>Saved position for this monitor layout, else the last position saved on any layout.</summary>
     public static (int X, int Y) GetDisplayPosition(WidgetSettings settings, DisplayConfiguration config)
     {
         if (settings.DisplayPositions.TryGetValue(config.ConfigurationHash, out var pos))
@@ -48,45 +64,18 @@ public static class DisplayService
             X = x, Y = y,
             LastSet = DateTime.UtcNow
         };
-        settings.LastDisplayConfigurationHash = config.ConfigurationHash;
         settings.X = x;
         settings.Y = y;
     }
 
-    // ── Internals ────────────────────────────────────────────────────────────
-
-    private static List<ScreenInfo> GetAllScreens()
+    /// <summary>
+    /// Drops layout keys written by older versions (their keys came from string.GetHashCode(), which
+    /// changes every run, so they can never match again and only bloat settings.json).
+    /// </summary>
+    public static void PruneStalePositions(WidgetSettings settings)
     {
-        try
-        {
-            return System.Windows.Forms.Screen.AllScreens
-                .Select(s => new ScreenInfo
-                {
-                    Bounds      = new System.Drawing.Rectangle(s.Bounds.X, s.Bounds.Y, s.Bounds.Width, s.Bounds.Height),
-                    IsPrimary   = s.Primary,
-                    DeviceName  = s.DeviceName
-                }).ToList();
-        }
-        catch
-        {
-            return [new ScreenInfo { Bounds = new System.Drawing.Rectangle(0, 0, 1920, 1080), IsPrimary = true, DeviceName = "Primary" }];
-        }
+        foreach (var key in settings.DisplayPositions.Keys.ToList())
+            if (!key.StartsWith(WidgetGeometry.FingerprintPrefix, StringComparison.Ordinal))
+                settings.DisplayPositions.Remove(key);
     }
-
-    private static string GenerateHash(List<ScreenInfo> screens)
-    {
-        if (screens.Count == 0) return "DEFAULT";
-        var parts = screens
-            .OrderBy(s => s.Bounds.X).ThenBy(s => s.Bounds.Y)
-            .Select(s => $"{s.Bounds.X}_{s.Bounds.Y}_{s.Bounds.Width}x{s.Bounds.Height}_{s.IsPrimary}");
-        var combined = string.Join("|", parts);
-        return $"DISP_{Math.Abs(combined.GetHashCode()):X8}";
-    }
-}
-
-internal class ScreenInfo
-{
-    public System.Drawing.Rectangle Bounds { get; set; }
-    public bool IsPrimary { get; set; }
-    public string DeviceName { get; set; } = string.Empty;
 }

@@ -534,9 +534,9 @@
                     HorizontalAlignment="Right"
                     Margin="16,10,16,14">
             <Button Content="Cancel" Style="{StaticResource SubtleButton}"
-                    Margin="0,0,8,0" Click="Cancel_Click"/>
+                    Margin="0,0,8,0" IsCancel="True" Click="Cancel_Click"/>
             <Button Content="Save"   Style="{StaticResource AccentButton}"
-                    Click="Save_Click"/>
+                    IsDefault="True" Click="Save_Click"/>
         </StackPanel>
 
         <!-- ── Format token reference popup ── -->

@@ -20,8 +20,36 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     private readonly string _origBgColor;
     private readonly int    _origBgOpacityPercent;
     private readonly int    _origFontScalePercent;
-    private readonly double _origPosX;
-    private readonly double _origPosY;
+    private readonly int    _origPosX;   // screen pixels
+    private readonly int    _origPosY;
+    private bool _committed;             // set by Save; anything else that closes the window reverts the preview
+
+    // Timer list edits (add / delete / reorder / field edits) mutate _widget.Timers directly, so keep
+    // the original entry objects (they also carry live run state) plus their persisted fields.
+    private readonly List<TimerEntry>  _origTimers;
+    private readonly List<TimerFields> _origTimerFields;
+
+    private readonly record struct TimerFields(
+        string Name, TimerType TimerType, string Color, int DurationSeconds, string AlarmTimeStr,
+        int AlarmDayOfWeek, string TimeFormat, string SoundFile, bool FlashOnEnd)
+    {
+        public static TimerFields From(TimerEntry t) =>
+            new(t.Name, t.TimerType, t.Color, t.DurationSeconds, t.AlarmTimeStr,
+                t.AlarmDayOfWeek, t.TimeFormat, t.SoundFile, t.FlashOnEnd);
+
+        public void ApplyTo(TimerEntry t)
+        {
+            t.Name            = Name;
+            t.TimerType       = TimerType;
+            t.Color           = Color;
+            t.DurationSeconds = DurationSeconds;
+            t.AlarmTimeStr    = AlarmTimeStr;
+            t.AlarmDayOfWeek  = AlarmDayOfWeek;
+            t.TimeFormat      = TimeFormat;
+            t.SoundFile       = SoundFile;
+            t.FlashOnEnd      = FlashOnEnd;
+        }
+    }
 
     // ── Position picker ──────────────────────────────────────────────────────
 
@@ -37,7 +65,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     private System.Windows.Point _markerDragStart;
     private double _markerDragOrigLeft;
     private double _markerDragOrigTop;
-    private double _editPosX;
+    private double _editPosX;   // screen pixels
     private double _editPosY;
 
     public string WidgetPositionText => $"X: {(int)_editPosX}  Y: {(int)_editPosY}";
@@ -178,8 +206,9 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         _origBgOpacityPercent = (int)Math.Round(widget.BackgroundOpacity * 100);
         if (_origBgOpacityPercent == 0) _origBgOpacityPercent = 85;
         _origFontScalePercent = widget.FontScalePercent > 0 ? widget.FontScalePercent : 100;
-        _origPosX = livePreviewTarget?.Left ?? widget.X;
-        _origPosY = livePreviewTarget?.Top  ?? widget.Y;
+        (_origPosX, _origPosY) = livePreviewTarget?.ScreenPosition ?? (widget.X, widget.Y);
+        _origTimers      = widget.Timers.ToList();
+        _origTimerFields = widget.Timers.Select(TimerFields.From).ToList();
         _editPosX = _origPosX;
         _editPosY = _origPosY;
 
@@ -551,7 +580,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         if (_selectedTimerItem == null) return;
         if (Timers.Count == 1)
         {
-            System.Windows.MessageBox.Show("At least one timer is required.",
+            System.Windows.MessageBox.Show(this, "At least one timer is required.",
                 "Cannot Delete", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -681,8 +710,8 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         double markerW   = Math.Max(widgetWpx * _mapScale, 14);
         double markerH   = Math.Max(widgetHpx * _mapScale, 8);
 
-        double markerLeft = _mapLeft + (_editPosX * _dpiScaleX - minX) * _mapScale;
-        double markerTop  = _mapTop  + (_editPosY * _dpiScaleY - minY) * _mapScale;
+        double markerLeft = _mapLeft + (_editPosX - minX) * _mapScale;
+        double markerTop  = _mapTop  + (_editPosY - minY) * _mapScale;
 
         _widgetMarker = new System.Windows.Controls.Border
         {
@@ -728,16 +757,12 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         System.Windows.Controls.Canvas.SetLeft(_widgetMarker, newL);
         System.Windows.Controls.Canvas.SetTop(_widgetMarker, newT);
 
-        _editPosX = ((newL - _mapLeft) / _mapScale + _mapOffsetX) / _dpiScaleX;
-        _editPosY = ((newT - _mapTop)  / _mapScale + _mapOffsetY) / _dpiScaleY;
+        _editPosX = (newL - _mapLeft) / _mapScale + _mapOffsetX;
+        _editPosY = (newT - _mapTop)  / _mapScale + _mapOffsetY;
 
         OnPropertyChanged(nameof(WidgetPositionText));
 
-        if (_livePreviewTarget != null)
-        {
-            _livePreviewTarget.Left = _editPosX;
-            _livePreviewTarget.Top  = _editPosY;
-        }
+        _livePreviewTarget?.MoveTo((int)Math.Round(_editPosX), (int)Math.Round(_editPosY));
 
         e.Handled = true;
     }
@@ -761,13 +786,10 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         _widget.EmbedInWallpaper  = _embedInWallpaper;
         _widget.ShowTitleBar      = _showTitleBar;
 
+        int posX = (int)Math.Round(_editPosX), posY = (int)Math.Round(_editPosY);
         var config = DisplayService.GetCurrentDisplayConfiguration();
-        DisplayService.SaveDisplayPosition(_widget, config, (int)_editPosX, (int)_editPosY);
-        if (_livePreviewTarget != null)
-        {
-            _livePreviewTarget.Left = _editPosX;
-            _livePreviewTarget.Top  = _editPosY;
-        }
+        DisplayService.SaveDisplayPosition(_widget, config, posX, posY);
+        _livePreviewTarget?.MoveTo(posX, posY);
 
         var autoStartError = AutoStartService.SetEnabled(_autoStartEnabled);
         App.Settings.AutoStart = AutoStartService.IsEnabled();
@@ -776,21 +798,38 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
                 MessageBoxButton.OK, MessageBoxImage.Information);
 
         SettingsService.Save(App.Settings);
+        _committed = true;
         DialogResult = true;
         Close();
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
+        DialogResult = false;   // OnClosing does the revert
+        Close();
+    }
+
+    /// <summary>Esc, Cancel and the title-bar X all close without Save — every one of them must undo the live preview.</summary>
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        if (!e.Cancel && !_committed)
+            RevertPreview();
+    }
+
+    private void RevertPreview()
+    {
+        // Timer list: original entries, original order, original field values.
+        _widget.Timers.Clear();
+        _widget.Timers.AddRange(_origTimers);
+        for (int i = 0; i < _origTimers.Count; i++)
+            _origTimerFields[i].ApplyTo(_origTimers[i]);
+
+        // Live widget preview (_widget's appearance fields are only written by Save).
         _livePreviewTarget?.ApplyBackground(_origBgColor, _origBgOpacityPercent / 100.0);
         _livePreviewTarget?.ApplyFontScale(_origFontScalePercent);
-        if (_livePreviewTarget != null)
-        {
-            _livePreviewTarget.Left = _origPosX;
-            _livePreviewTarget.Top  = _origPosY;
-        }
-        DialogResult = false;
-        Close();
+        _livePreviewTarget?.ApplyShowTitleBar(_widget.ShowTitleBar);
+        _livePreviewTarget?.MoveTo(_origPosX, _origPosY);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
